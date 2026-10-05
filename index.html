@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Desafio B3 — Simulador de Investimentos</title>
+<style>
+:root{
+  --bg:#0F1B2D; --panel:#16263D; --line:#26385280;
+  --text:#F0EDE4; --muted:#9FB0C7;
+  --gold:#E8B94A; --up:#4ADE80; --down:#F87171;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  box-sizing:border-box;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif;min-height:100%;}
+h1,h2,h3{font-family:Georgia,'Times New Roman',serif;font-weight:700;margin:0 0 .3em}
+.wrap{max-width:760px;margin:0 auto;padding:28px 20px 60px}
+header{margin-bottom:22px}
+.eyebrow{color:var(--gold);font-size:.85em}
+h1{font-size:1.8em}
+.sub{color:var(--muted);font-size:.95em;line-height:1.5}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.stock{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.stock:last-child{border-bottom:none}
+.stock .info{flex:1;min-width:140px}
+.stock .code{font-weight:700}
+.stock .sector{color:var(--muted);font-size:.85em}
+.stock input{width:70px;background:#0F1B2D;border:1px solid var(--line);color:var(--text);padding:6px 8px;border-radius:6px;text-align:right;font-size:1em}
+.stock .pct-label{color:var(--muted);margin-left:4px}
+.total-bar{margin-top:6px;font-size:.9em;color:var(--muted)}
+.total-bar b{color:var(--text)}
+button{background:var(--gold);color:#16263D;border:none;padding:12px 22px;border-radius:8px;font-size:1em;font-weight:700;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.secondary{background:transparent;border:1px solid var(--gold);color:var(--gold)}
+button.choice{display:block;width:100%;text-align:left;background:#0F1B2D;color:var(--text);border:1px solid var(--line);margin-bottom:8px;padding:12px 14px;font-weight:400}
+button.choice:hover{border-color:var(--gold)}
+button.choice.correct{border-color:var(--up);background:#123321}
+button.choice.wrong{border-color:var(--down);background:#331414}
+.msg{color:var(--down);font-size:.9em;min-height:1.3em;margin-top:8px}
+.news{background:#0F1B2D;border-left:3px solid var(--gold);padding:10px 14px;border-radius:6px;margin-bottom:10px;font-size:.95em;opacity:0;animation:in .35s forwards}
+.news:nth-child(1){animation-delay:.05s}.news:nth-child(2){animation-delay:.15s}.news:nth-child(3){animation-delay:.25s}
+.news:nth-child(4){animation-delay:.35s}.news:nth-child(5){animation-delay:.45s}.news:nth-child(6){animation-delay:.55s}
+@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.change{font-weight:700}
+.up{color:var(--up)} .down{color:var(--down)}
+.result-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
+.big{font-size:1.6em;font-weight:700}
+.hidden{display:none}
+.round-tag{color:var(--muted);font-size:.85em}
+.badge{display:inline-block;background:var(--gold);color:#16263D;padding:4px 12px;border-radius:20px;font-weight:700;font-size:.9em}
+.tip{color:var(--muted);font-size:.85em;font-style:italic;margin-top:4px}
+footer{color:var(--muted);font-size:.85em;text-align:center;margin-top:30px}
+svg{width:100%;height:auto}
+.explain{background:#0F1B2D;border-radius:6px;padding:10px 14px;font-size:.9em;color:var(--muted);margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Educação Financeira · 9º ano</div>
+  <h1>Desafio B3</h1>
+  <p class="sub">Sua equipe recebeu <b>R$ 100.000,00</b> fictícios. Monte a carteira, reaja às notícias e decida se vende, mantém ou espera recuperar — cada escolha muda o resultado.</p>
+</header>
+
+<div id="tela-carteira">
+  <div class="panel">
+    <h2>Monte sua carteira</h2>
+    <p class="sub">Distribua % do capital entre pelo menos 3 empresas. Nenhuma pode receber mais de 50%.</p>
+    <div id="lista-acoes"></div>
+    <div class="total-bar">Alocado: <b id="total-pct">0%</b> de 100% · Corretagem: R$ 10 por operação</div>
+    <div class="msg" id="msg-carteira"></div>
+    <div style="margin-top:14px"><button id="btn-comprar">Comprar carteira</button></div>
+  </div>
+</div>
+
+<div id="tela-rodada" class="hidden">
+  <div class="panel">
+    <div class="row"><h2>Semana <span id="round-num">1</span> de 4</h2><span class="round-tag" id="patrimonio-atual"></span></div>
+    <div id="noticias"></div>
+    <div id="decisao"></div>
+    <button id="btn-avancar">Avançar semana</button>
+  </div>
+  <div class="panel">
+    <h3>Sua carteira agora</h3>
+    <div id="carteira-atual"></div>
+  </div>
+</div>
+
+<div id="tela-final" class="hidden">
+  <div class="panel">
+    <h2>Fechamento do desafio</h2>
+    <p><span class="badge" id="badge"></span></p>
+    <div class="result-row"><span>Capital inicial</span><span>R$ 100.000,00</span></div>
+    <div class="result-row"><span>Patrimônio final</span><span id="final-valor" class="big"></span></div>
+    <div class="result-row"><span>Resultado</span><span id="final-resultado" class="big"></span></div>
+    <svg id="chart" viewBox="0 0 300 110" style="margin-top:14px"></svg>
+    <div class="tip">Evolução do patrimônio ao longo das 4 semanas</div>
+  </div>
+  <div class="panel">
+    <h3>O que aconteceu com cada ação</h3>
+    <div id="final-tabela"></div>
+  </div>
+  <div class="panel">
+    <h3>Teste rápido: você entendeu o mercado?</h3>
+    <div id="quiz"></div>
+  </div>
+  <div class="panel">
+    <h3>Para discutir com o grupo</h3>
+    <ul class="sub">
+      <li>Qual ação deu mais lucro? Qual deu mais prejuízo? Por quê?</li>
+      <li>Vender uma ação em queda foi uma boa decisão, olhando pra trás?</li>
+      <li>A diversificação ajudou a equipe a perder menos nas semanas ruins?</li>
+    </ul>
+    <button class="secondary" id="btn-refazer">Jogar novamente</button>
+  </div>
+</div>
+
+<footer>Baseado em cotações reais registradas durante o desafio de simulação da B3.</footer>
+</div>
+
+<script>
+const stocks = [
+  {code:'PETR4', name:'Petrobras', sector:'Petróleo'},
+  {code:'VALE3', name:'Vale', sector:'Mineração'},
+  {code:'ITUB4', name:'Itaú', sector:'Banco'},
+  {code:'MGLU3', name:'Magazine Luiza', sector:'Varejo'},
+  {code:'WEGE3', name:'WEG', sector:'Indústria'},
+  {code:'ROXO34', name:'Nubank', sector:'Fintech'},
+];
+const rounds = [
+  {news:[
+    {code:'PETR4', text:'Tensão internacional eleva o preço do petróleo.', pct:5},
+    {code:'VALE3', text:'China sinaliza menor demanda por minério de ferro.', pct:-5},
+    {code:'ITUB4', text:'Selic mantida: bancos comemoram estabilidade.', pct:5},
+    {code:'MGLU3', text:'Inflação alta reduz o consumo das famílias.', pct:-10},
+    {code:'WEGE3', text:'Exportações da WEG seguem fortes.', pct:2},
+    {code:'ROXO34', text:'Nubank anuncia crescimento na base de clientes.', pct:3}]},
+  {news:[
+    {code:'PETR4', text:'Vazamento de óleo gera multa para a Petrobras.', pct:-4},
+    {code:'VALE3', text:'Preço internacional do minério se recupera.', pct:6},
+    {code:'ITUB4', text:'Itaú anuncia lucro recorde no trimestre.', pct:3},
+    {code:'MGLU3', text:'Black Friday impulsiona as vendas do varejo.', pct:8},
+    {code:'WEGE3', text:'Novo contrato fecha com margem apertada.', pct:1},
+    {code:'ROXO34', text:'Concorrência de novos bancos digitais aumenta.', pct:-2}]},
+  {news:[
+    {code:'PETR4', text:'Greve afeta a produção em refinarias.', pct:-3},
+    {code:'VALE3', text:'Nova mina é aprovada pelo governo.', pct:2},
+    {code:'ITUB4', text:'Juros sobem e deixam o setor bancário incerto.', pct:-2},
+    {code:'MGLU3', text:'Consumidor recua diante dos juros altos.', pct:-5},
+    {code:'WEGE3', text:'WEG fecha novo contrato internacional.', pct:4},
+    {code:'ROXO34', text:'Nubank lança novo produto de investimentos.', pct:5}]},
+  {news:[
+    {code:'PETR4', text:'Reforma tributária beneficia o setor de energia.', pct:6},
+    {code:'VALE3', text:'Exportação de minério bate recorde no mês.', pct:4},
+    {code:'ITUB4', text:'Itaú mantém resultados estáveis.', pct:1},
+    {code:'MGLU3', text:'Vendas de fim de ano aquecem o varejo.', pct:6},
+    {code:'WEGE3', text:'Demanda industrial segue aquecida.', pct:2},
+    {code:'ROXO34', text:'Nubank expande operação para novos países.', pct:3}]},
+];
+const quizQuestions = [
+  {q:'Por que diversificar entre empresas de setores diferentes reduz o risco?',
+   opts:['Porque garante lucro em todas as ações','Porque uma queda em um setor pode ser compensada por outro','Porque o governo exige isso','Porque as ações ficam mais caras'],
+   correct:1,
+   exp:'Setores reagem a notícias diferentes. Se um cai, outro pode se manter ou subir, equilibrando o resultado.'},
+  {q:'O que é volatilidade?',
+   opts:['O lucro garantido de uma ação','A quantidade de ações emitidas','A variação do preço de uma ação ao longo do tempo','A taxa de corretagem cobrada'],
+   correct:2,
+   exp:'Volatilidade é o quanto o preço de uma ação sobe e desce. Ações mais voláteis têm mais risco e mais chance de ganho ou perda rápida.'},
+  {q:'Vender uma ação em queda para "travar" o prejuízo é sempre a melhor escolha?',
+   opts:['Sim, sempre','Não, depende se a queda é passageira ou se o motivo é grave','Sim, porque toda queda continua para sempre','Não, porque ações nunca caem de verdade'],
+   correct:1,
+   exp:'Não existe certeza no mercado. Vender trava a perda, mas também tira a chance de recuperação — por isso a decisão depende da análise do motivo da queda.'},
+];
+
+let alloc={}, portfolio={}, cash=0, roundIdx=0, history=[100000], quizScore=0;
+
+function renderCarteira(){
+  document.getElementById('lista-acoes').innerHTML = stocks.map(s => `
+    <div class="stock">
+      <div class="info"><div class="code">${s.code} — ${s.name}</div><div class="sector">${s.sector}</div></div>
+      <div><input type="number" min="0" max="100" step="5" data-code="${s.code}" class="alloc-input" value="0"><span class="pct-label">%</span></div>
+    </div>`).join('');
+  document.querySelectorAll('.alloc-input').forEach(i => i.addEventListener('input', updateTotal));
+  updateTotal();
+}
+function updateTotal(){
+  let total = 0;
+  document.querySelectorAll('.alloc-input').forEach(i => total += Number(i.value)||0);
+  document.getElementById('total-pct').textContent = total + '%';
+}
+document.getElementById('btn-comprar').addEventListener('click', () => {
+  const vals = [...document.querySelectorAll('.alloc-input')].map(i => ({code:i.dataset.code, pct:Number(i.value)||0})).filter(v=>v.pct>0);
+  const total = vals.reduce((a,v)=>a+v.pct,0);
+  const msg = document.getElementById('msg-carteira');
+  if (vals.length < 3){ msg.textContent='Escolha pelo menos 3 empresas diferentes.'; return; }
+  if (vals.some(v=>v.pct>50)){ msg.textContent='Nenhuma empresa pode receber mais de 50% do capital.'; return; }
+  if (total !== 100){ msg.textContent=`A soma precisa ser exatamente 100% (está em ${total}%).`; return; }
+  msg.textContent='';
+  const fee = vals.length*10;
+  portfolio={}; cash=0; alloc={};
+  vals.forEach(v => { alloc[v.code]=v.pct; portfolio[v.code]=100000*v.pct/100 - fee/vals.length; });
+  roundIdx=0; history=[100000];
+  document.getElementById('tela-carteira').classList.add('hidden');
+  document.getElementById('tela-rodada').classList.remove('hidden');
+  renderRound();
+});
+function currentTotal(){ return Object.values(portfolio).reduce((a,b)=>a+b,0) + cash; }
+function renderCarteiraAtual(){
+  const box = document.getElementById('carteira-atual');
+  let rows = Object.keys(portfolio).map(code => {
+    const s = stocks.find(x=>x.code===code);
+    return `<div class="result-row"><span>${code} — ${s.name}</span><span>R$ ${portfolio[code].toLocaleString('pt-BR',{minimumFractionDigits:2})}</span></div>`;
+  }).join('');
+  if (cash>0) rows += `<div class="result-row"><span>Caixa (fora da bolsa)</span><span>R$ ${cash.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span></div>`;
+  box.innerHTML = rows;
+  document.getElementById('patrimonio-atual').textContent = 'Total: R$ ' + currentTotal().toLocaleString('pt-BR',{minimumFractionDigits:2});
+}
+function renderRound(){
+  document.getElementById('round-num').textContent = roundIdx+1;
+  renderCarteiraAtual();
+  document.getElementById('noticias').innerHTML = '<p class="sub">Clique em "Avançar semana" para ver as notícias que vão mexer com o mercado.</p>';
+  document.getElementById('decisao').innerHTML='';
+  document.getElementById('btn-avancar').disabled = false;
+  document.getElementById('btn-avancar').textContent = 'Avançar semana';
+  document.getElementById('btn-avancar').classList.remove('hidden');
+}
+document.getElementById('btn-avancar').addEventListener('click', () => {
+  const round = rounds[roundIdx];
+  const relevant = round.news.filter(n => portfolio.hasOwnProperty(n.code));
+  document.getElementById('noticias').innerHTML = relevant.map(n => {
+    const s = stocks.find(x=>x.code===n.code);
+    const cls = n.pct>=0?'up':'down';
+    portfolio[n.code] = portfolio[n.code]*(1+n.pct/100);
+    return `<div class="news">📰 <b>${n.code}</b> (${s.name}) — ${n.text} <span class="change ${cls}">${n.pct>0?'+':''}${n.pct}%</span></div>`;
+  }).join('');
+  renderCarteiraAtual();
+  const worst = relevant.filter(n=>n.pct<0).sort((a,b)=>a.pct-b.pct)[0];
+  document.getElementById('btn-avancar').classList.add('hidden');
+  if (worst){
+    const s = stocks.find(x=>x.code===worst.code);
+    document.getElementById('decisao').innerHTML = `
+      <div class="explain">${worst.code} foi a que mais caiu essa semana. O que sua equipe faz?</div>
+      <button class="choice" id="op-vender">Vender ${worst.code} e guardar o valor em caixa (taxa R$ 10)</button>
+      <button class="choice" id="op-manter">Manter ${worst.code} e esperar recuperar</button>`;
+    document.getElementById('op-vender').addEventListener('click', () => {
+      cash += portfolio[worst.code] - 10;
+      delete portfolio[worst.code];
+      proceedRound();
+    });
+    document.getElementById('op-manter').addEventListener('click', proceedRound);
+  } else {
+    document.getElementById('decisao').innerHTML = `<div class="explain">Nenhuma ação caiu essa semana. Sua carteira segue como está.</div>`;
+    proceedRound();
+  }
+});
+function proceedRound(){
+  renderCarteiraAtual();
+  document.getElementById('decisao').innerHTML='';
+  history.push(currentTotal());
+  roundIdx++;
+  const btn = document.getElementById('btn-avancar');
+  btn.classList.remove('hidden');
+  if (roundIdx < rounds.length){
+    btn.disabled=false;
+    document.getElementById('round-num').textContent = roundIdx+1;
+    document.getElementById('noticias').innerHTML = '<p class="sub">Clique em "Avançar semana" para a próxima rodada de notícias.</p>';
+  } else {
+    showFinal();
+  }
+}
+function showFinal(){
+  document.getElementById('tela-rodada').classList.add('hidden');
+  document.getElementById('tela-final').classList.remove('hidden');
+  const finalTotal = currentTotal();
+  const diff = finalTotal - 100000;
+  document.getElementById('final-valor').textContent = 'R$ ' + finalTotal.toLocaleString('pt-BR',{minimumFractionDigits:2});
+  const resEl = document.getElementById('final-resultado');
+  resEl.textContent = (diff>=0?'+ R$ ':'− R$ ') + Math.abs(diff).toLocaleString('pt-BR',{minimumFractionDigits:2});
+  resEl.className = 'big ' + (diff>=0?'up':'down');
+
+  const numStocks = Object.keys(alloc).length, maxAlloc = Math.max(...Object.values(alloc));
+  let badgeText = numStocks>=5 && maxAlloc<=25 ? 'Investidor(a) Diversificador(a)' : (numStocks===3 || maxAlloc>=40 ? 'Investidor(a) Arrojado(a)' : 'Investidor(a) Moderado(a)');
+  document.getElementById('badge').textContent = badgeText;
+
+  document.getElementById('final-tabela').innerHTML = Object.keys(alloc).map(code => {
+    const s = stocks.find(x=>x.code===code);
+    const start = 100000*alloc[code]/100;
+    const end = portfolio.hasOwnProperty(code) ? portfolio[code] : null;
+    if (end===null) return `<div class="result-row"><span>${code} — ${s.name}</span><span class="muted">Vendida antes do fim</span></div>`;
+    const pct = ((end-start)/start*100).toFixed(1);
+    const cls = pct>=0?'up':'down';
+    return `<div class="result-row"><span>${code} — ${s.name}</span><span class="change ${cls}">${pct>0?'+':''}${pct}%</span></div>`;
+  }).join('');
+
+  const min = Math.min(...history), max = Math.max(...history, 100000);
+  const pts = history.map((v,i) => {
+    const x = (i/(history.length-1))*280+10;
+    const y = 100 - ((v-min)/((max-min)||1))*80 - 10;
+    return `${x},${y}`;
+  }).join(' ');
+  document.getElementById('chart').innerHTML = `
+    <line x1="10" y1="${100-((100000-min)/((max-min)||1))*80-10}" x2="290" y2="${100-((100000-min)/((max-min)||1))*80-10}" stroke="#9FB0C7" stroke-dasharray="3,3" stroke-width="1"/>
+    <polyline points="${pts}" fill="none" stroke="#E8B94A" stroke-width="2.5"/>`;
+
+  renderQuiz();
+}
+function renderQuiz(){
+  quizScore=0;
+  const box = document.getElementById('quiz');
+  let qi = 0;
+  function showQ(){
+    if (qi >= quizQuestions.length){
+      box.innerHTML = `<p class="sub">Você acertou <b>${quizScore} de ${quizQuestions.length}</b> perguntas.</p>`;
+      return;
+    }
+    const q = quizQuestions[qi];
+    box.innerHTML = `<p><b>${qi+1}. ${q.q}</b></p>` + q.opts.map((o,idx) => `<button class="choice" data-idx="${idx}">${o}</button>`).join('') + `<div class="explain hidden" id="quiz-exp">${q.exp}</div>`;
+    box.querySelectorAll('.choice').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        box.querySelectorAll('.choice').forEach(b => b.disabled = true);
+        if (idx === q.correct){ btn.classList.add('correct'); quizScore++; }
+        else { btn.classList.add('wrong'); box.querySelector(`[data-idx="${q.correct}"]`).classList.add('correct'); }
+        document.getElementById('quiz-exp').classList.remove('hidden');
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = qi < quizQuestions.length-1 ? 'Próxima pergunta' : 'Ver resultado';
+        nextBtn.style.marginTop='10px';
+        nextBtn.addEventListener('click', () => { qi++; showQ(); });
+        box.appendChild(nextBtn);
+      });
+    });
+  }
+  showQ();
+}
+document.getElementById('btn-refazer').addEventListener('click', () => {
+  alloc={}; portfolio={}; cash=0; roundIdx=0; history=[100000];
+  document.getElementById('tela-final').classList.add('hidden');
+  document.getElementById('tela-carteira').classList.remove('hidden');
+  renderCarteira();
+});
+renderCarteira();
+</script>
+</body>
+</html>
